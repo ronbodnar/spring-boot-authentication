@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Northern Refrigerated Unit Search</title>
+    <link th:href="@{/bootstrap.min.css}" rel="stylesheet"/>
+    <link th:href="@{/style.css}" rel="stylesheet"/>
+</head>
+
+<body>
+
+<header>
+    <!-- Fixed navbar -->
+    <nav class="navbar navbar-expand-md navbar-dark fixed-top">
+        <div class="container-fluid">
+            <span class="navbar-brand fw-bold">Northern Refrigerated Transportation</span>
+        </div>
+    </nav>
+</header>
+
+<!-- Begin page content -->
+<main>
+    <div class="container-fluid">
+        <h2 class="text-center fw-bold">Tractor & Trailer Unit Search</h2>
+
+        <form id="search-form" class="needs-validation">
+            <div class="row pt-5">
+                <div class="col-md-12">
+                    <label for="search-input" class="form-label">Tractor / Trailer Number(s):</label>
+                </div>
+                <div class="col-md-10">
+                    <input type="text" id="search-input" class="form-control" name="searchQuery"
+                           placeholder="Enter unit number(s), separated by space (eg: 150 5010)"
+                           autocomplete="off"/>
+                    <div class="invalid-feedback">
+                        Please enter a unit number.
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" id="search-button" class="btn btn-nrt">Search</button>
+                </div>
+            </div>
+        </form>
+
+        <div id="results" class="pt-3"></div>
+    </div>
+</main>
+
+<footer class="footer mt-auto py-3">
+    <div class="container">
+        <span class="text-muted">Copyright (&copy;) 2024 <a href="https://ronbodnar.com">Ron Bodnar</a>. All Rights Reserved.</span>
+    </div>
+</footer>
+
+<script th:inline="javascript">
+    (function () {
+        let searchForm = document.getElementById("search-form")
+        if (searchForm)
+            searchForm.onsubmit = (event) => {
+                event.preventDefault()
+
+                let searchQuery = document.getElementById('search-input').value
+                if (searchQuery)
+                    submitForm(searchQuery)
+                else
+                    document.getElementById('search-input').classList.add('is-invalid')
+            }
+    })();
+
+    async function submitForm(searchQuery) {
+        document.getElementById('search-input').classList.remove('is-invalid')
+        try {
+            fetch(
+                '/search/' + encodeURIComponent(searchQuery),
+                {
+                    method: 'GET'
+                }
+            )
+                .catch((error) => {
+                    document.getElementById('results').innerHTML = 'No results found for <em>' + searchQuery + '</em>. <a href="/add-unit">Want to add unit info?</a>'
+                    throw 402
+                })
+                .then(response => {
+                        if (response.ok) {
+                            response.json().then(data => ({
+                                    data: data,
+                                    status: response.status
+                                })
+                            ).then(res => {
+                                //console.log(res.status, res.data)
+
+                                //console.log(res.data.length)
+
+                                if (res.data.length === 0) {
+                                    document.getElementById('results').innerHTML = 'No results found for <em>' + searchQuery + '</em>. <a href="/add-unit">Want to add unit info?</a>'
+                                    return
+                                }
+
+                                let innerHTML = '';
+                                for (let i = 0; i < res.data.length; i++) {
+                                    if (res.data[i].carbId)
+                                        innerHTML += '<strong>Unit ' + res.data[i].id + ':</strong><br /><strong>Carb ID:</strong> ' + res.data[i].carbId + '<br /><strong>License Plate:</strong> ' + res.data[i].licensePlate.toUpperCase() + '<br />'
+                                    else
+                                        innerHTML += '<strong>Unit ' + res.data[i].id + ':</strong><br /><strong>License Plate:</strong> ' + res.data[i].licensePlate.toUpperCase() + '<br />'
+                                    innerHTML += '<br />'
+                                }
+                                document.getElementById('results').innerHTML = innerHTML;
+                            })
+                        }
+                    }
+                )
+        } catch (error) {
+            document.getElementById('results').innerHTML = 'No results found for ' + searchQuery
+            throw 400
+        }
+    }
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.min.js"
+        integrity="sha384-cVKIPhGWiC2Al4u+LWgxfKTRIcfu0JTxR+EQDz/bgldoEyl4H0zUF0QKbrJ0EcQF"
+        crossorigin="anonymous"></script>
+</body>
+</html>

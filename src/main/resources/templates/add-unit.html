@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Northern Refrigerated Unit Search</title>
+    <link th:href="@{/bootstrap.min.css}" rel="stylesheet"/>
+    <link th:href="@{/style.css}" rel="stylesheet"/>
+</head>
+
+<body>
+
+<header>
+    <!-- Fixed navbar -->
+    <nav class="navbar navbar-expand-md navbar-dark fixed-top">
+        <div class="container-fluid">
+            <span class="navbar-brand fw-bold">Northern Refrigerated Transportation</span>
+        </div>
+    </nav>
+</header>
+
+<!-- Begin page content -->
+<main>
+    <div class="container-fluid">
+        <h2 class="text-center fw-bold">Add Tractor / Trailer Unit</h2>
+
+        <form id="add-unit-form" class="needs-validation">
+            <div class="row pt-3">
+                <div class="col-md-12">
+                    <label class="form-label fw-bold">Unit Type:</label>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="unitRadio" id="tractorRadio" checked>
+                        <label class="form-check-label" for="tractorRadio">
+                            Tractor
+                        </label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="unitRadio" id="trailerRadio">
+                        <label class="form-check-label" for="trailerRadio">
+                            Trailer
+                        </label>
+                    </div>
+                </div>
+                <div class="col-md-12 pt-3">
+                    <label for="unit-number" class="form-label fw-bold">Unit Number:</label>
+                    <input type="text" id="unit-number" class="form-control" name="unitNumber"
+                           placeholder="Enter a unit number (eg: 5010)"
+                           autocomplete="off"/>
+                    <div class="invalid-feedback">
+                        Please enter a unit number.
+                    </div>
+                </div>
+                <div class="col-md-12 pt-3">
+                    <label for="license-plate" class="form-label fw-bold">License Plate:</label>
+                    <input type="text" id="license-plate" class="form-control" name="licensePlate"
+                           placeholder="Enter the unit's license plate (eg: 4MK4993)"
+                           autocomplete="off"/>
+                    <div class="invalid-feedback">
+                        Please enter a license plate.
+                    </div>
+                </div>
+                <div class="col-md-12 pt-3 hidden" id="carbon-id-group">
+                    <label for="carbon-id" class="form-label fw-bold">Carbon ID:</label>
+                    <input type="text" id="carbon-id" class="form-control" name="carbonId"
+                           placeholder="Enter the unit's carbon ID number (eg: ARB 13374833882)"
+                           autocomplete="off"/>
+                    <div class="invalid-feedback">
+                        Please enter a carbon ID number.
+                    </div>
+                </div>
+                <div class="col-md-12 pt-4">
+                    <button type="submit" id="add-unit-button" class="btn btn-nrt">Add Unit</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</main>
+
+<footer class="footer mt-auto py-3">
+    <div class="container">
+        <span class="text-muted">Copyright (&copy;) 2024 <a href="https://ronbodnar.com">Ron Bodnar</a>. All Rights Reserved.</span>
+    </div>
+</footer>
+
+<script th:inline="javascript">
+    (function () {
+        // Update the visibility of the carbon ID field when checking tractor/trailer
+        // Carbon ID isn't applicable to tractors
+        let unitRadio = document.getElementsByName("unitRadio")
+        if (unitRadio)
+            unitRadio.forEach(function (item) {
+                item.addEventListener('click', function (event) {
+                    let targetId = event.target.id
+
+                    if (targetId === 'tractorRadio')
+                        document.getElementById("carbon-id-group").classList.add('hidden')
+                    else
+                        document.getElementById("carbon-id-group").classList.remove('hidden')
+                });
+            });
+
+        // Submitting the form to add a unit
+        let searchForm = document.getElementById("add-unit-form")
+        if (searchForm)
+            searchForm.onsubmit = (event) => {
+                event.preventDefault()
+
+                let unitNumber = searchForm['unitNumber'].value
+                let licensePlate = searchForm['licensePlate'].value
+                let carbonId = searchForm['carbonId'].value
+                let unitIsTractor = searchForm['tractorRadio'].checked
+
+                // Validate the form and retrieve a list of any errors
+                let errors = validateForm(unitIsTractor, unitNumber, licensePlate, carbonId)
+
+                // Clear previous invalid styles
+                let fields = ['carbon-id', 'unit-number', 'license-plate']
+                fields.forEach(function (field) {
+                    document.getElementById(field).classList.remove('is-invalid')
+                });
+
+                // If errors are found, update the form fields and stop the submission
+                if (errors.length > 0) {
+                    errors.forEach(function (error) {
+                        console.log(error)
+                        document.getElementById(error).classList.add('is-invalid')
+                    });
+                    return
+                }
+
+                // Call the Rest API to add the unit to the repository
+                addUnit(unitIsTractor, unitNumber, licensePlate, carbonId)
+            }
+    })();
+
+    function validateForm(unitIsTractor, unitNumber, licensePlate, carbonId) {
+        let errors = []
+
+        // Ensure license plate matches the proper format 0AB1234
+        let licenseRegex = /^\d[a-zA-z]{2}\d{4}$/
+        if (!licensePlate.match(licenseRegex))
+            errors.push('license-plate')
+
+        if (unitIsTractor) {
+            // Ensure unit numbers are 2-4 digits and not over 1100
+            if (!unitNumber.match(/^\d{2,4}$/) || unitNumber > 1100)
+                errors.push('unit-number')
+        } else {
+            // Ensure unit numbers are 4-5 digits and not over 53999
+            if (!unitNumber.match(/^\d{4,5}$/) || unitNumber > 53999)
+                errors.push('unit-number')
+
+            // Ensure carbon IDs are at least 10 digits
+            if (!carbonId.match(/^\d{10,}$/))
+                errors.push('carbon-id')
+        }
+        return errors
+    }
+
+    async function addUnit(unitIsTractor, unitNumber, licensePlate, carbonId) {
+        let apiUrl = '/' + (unitIsTractor ? 'user' : 'trailer')
+        let data = {
+            id: unitNumber,
+            licensePlate: licensePlate
+        }
+
+        // Tractors don't have carbon IDs
+        if (!unitIsTractor)
+            data.push({ carbonId: carbonId })
+
+        // Async API call to add the unit to the repository
+        try {
+            fetch(
+                apiUrl,
+                {
+                    method: 'POST',
+                    body: JSON.stringify(data),
+                    headers: {
+                        "Content-Type": "application/json",
+                    }
+                }
+            )
+                .catch((error) => {
+                    console.log('Error adding unit:')
+                    console.log(error)
+                    throw 402
+                })
+                .then(response => {
+                        if (response.ok) {
+                            response.json().then(data => ({
+                                    data: data,
+                                    status: response.status
+                                })
+                            ).then(res => {
+                                console.log(res.status, res.data)
+                            })
+                        }
+                    }
+                )
+        } catch (error) {
+            console.log('ERROR')
+            console.log(error)
+            throw 400
+        }
+    }
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.min.js"
+        integrity="sha384-cVKIPhGWiC2Al4u+LWgxfKTRIcfu0JTxR+EQDz/bgldoEyl4H0zUF0QKbrJ0EcQF"
+        crossorigin="anonymous"></script>
+</body>
+</html>
