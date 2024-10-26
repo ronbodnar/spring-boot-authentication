@@ -1,11 +1,13 @@
 package com.ronbodnar.auth;
 
-import com.ronbodnar.auth.user.User;
-import com.ronbodnar.auth.user.UserRepository;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
+import org.springframework.security.crypto.password.PasswordEncoder;
+
+import com.ronbodnar.auth.user.User;
+import com.ronbodnar.auth.user.UserRepository;
 
 @SpringBootApplication
 public class UserAuthenticationApplication {
@@ -15,16 +17,11 @@ public class UserAuthenticationApplication {
 	}
 
 	@Bean
-	CommandLineRunner init(UserRepository userRepository) {
+	CommandLineRunner init(UserRepository userRepository, PasswordEncoder passwordEncoder) {
 		return args -> {
-			User user1 = new User(0, "test", "test");
-			User user2 = new User(1, "ron", "password");
-
-			userRepository.save(user1);
-			userRepository.save(user2);
-
-			System.out.println("Added users to repo:");
-			userRepository.findAll().forEach(System.out::println);
+			User user = new User("test@mail.com", passwordEncoder.encode("test"));
+			userRepository.save(user);
+			System.out.println("Added user: " + user.getEmail());
 		};
 	}
 }
